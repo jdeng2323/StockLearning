@@ -1,9 +1,11 @@
 # pip install akshare 如果没有安装的话，要install一下
+from signal import signal
 
 import pandas as pd
 import numpy as np
 import akshare as ak
 import time
+
 
 def getStockInfo():
     df = ak.stock_zh_a_spot_em()
@@ -15,9 +17,9 @@ def getStockInfo():
 
     # 深证+创业板
     sz_stock = df[
-        df["代码"].astype(str).str.startswith(("0","3")).copy()
+        df["代码"].astype(str).str.startswith(("0", "3")).copy()
     ]
-    sz_stock = "sz" + sz_stock["代码"].astype(str)
+    sz_stock["代码"] = "sz" + sz_stock["代码"].astype(str)
 
     res = pd.concat([sh_stock, sz_stock])
     return res
@@ -63,7 +65,7 @@ if __name__ == "__main__":
     atr_multiplier = 3
     atr_period = 10
     his_period = '30' # 这里定义的是分时图的时间周期，'30'代表30分钟k线
-    adjust = 'hfq' # 赋权方式，前复权是'qfq',默认是'hfq'后复权
+    adjust = 'qfq' # 赋权方式，前复权是'qfq',默认是'qfq'后复权
     signal_period = 8 # 信号检测周期，默认8个时间片
 
     # 获取上市股票数据
@@ -73,10 +75,11 @@ if __name__ == "__main__":
     filtered_df = all_stock_data[
         (all_stock_data['量比'] > 1)
         & (all_stock_data['换手率'] > 5)
-        & (all_stock_data['总市值'] > 5000000000)
+        # & (all_stock_data['总市值'] > 5000000000)
         & (all_stock_data['市盈率-动态'] > 0)
     ]
     stock_code_list = filtered_df["代码"].values
+    print(stock_code_list)
 
     # 初始化循环配置
     result_list = []
@@ -85,11 +88,14 @@ if __name__ == "__main__":
     # 处理数据
     for stock_code in stock_code_list:
         try:
-            df = getStockData(stock_code)
-            
+            df = getStockData(stock_code, period=his_period, adjust=adjust)
+
             result_df = processSuperTrendSignal(df, atr_period, atr_multiplier)
-            df.sort_values(by="day", ascending=False)
-            signal_head = df["signal"].head(signal_period).tolist()
+            result_df = result_df.sort_index(ascending=False)
+            print(result_df.head(signal_period))
+
+            signal_head = result_df["signal"].head(signal_period).tolist()
+            print(signal_head)
 
             if "buy" in signal_head:
                 result_list.append(stock_code)
